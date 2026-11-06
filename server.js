@@ -7,13 +7,16 @@ const path = require("path");
 const fs = require("fs");
 const { calc } = require("./public/js/calc.js");
 const DEF={name:"NAVEEN TEX",gstin:"33BJEPM7823D2ZE",addr:"3/178/4, Saravana Nagar, Chennimalai, Erode, Tamil Nadu 638051",phone:"",email:"",holder:"",bank:"Tamilnadu Mercantile Bank",acc:"361700050900039",ifsc:"TMBL0000361",branch:"Kanakkankadu (CHENNIMALAI)",upi:"",terms:""};
-const pool=new Pool({connectionString:process.env.DATABASE_URL||process.env.POSTGRES_URL,max:3,idleTimeoutMillis:10000});
+/* Find the Postgres address: DATABASE_URL, POSTGRES_URL, or any env var holding a postgres:// address (Vercel/Neon may add a prefix). */
+const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING ||
+  Object.values(process.env).find(v => /^postgres(ql)?:\/\//.test(v || ""));
+const pool = new Pool({ connectionString: DB_URL, max: 3, idleTimeoutMillis: 10000 });
 let ready=null;
-const init=()=>ready||(ready=pool.query(`
+const init=()=>ready||(ready=(!DB_URL?Promise.reject(new Error("No database address found. Connect the Neon database to this Vercel project (DATABASE_URL), then redeploy.")):pool.query(`
  CREATE TABLE IF NOT EXISTS bills(id TEXT PRIMARY KEY,no TEXT NOT NULL UNIQUE,date TEXT,rname TEXT,rgstin TEXT,tot BIGINT,data JSONB NOT NULL,created BIGINT,updated BIGINT);
  CREATE INDEX IF NOT EXISTS i_bills_date ON bills(date);
  CREATE TABLE IF NOT EXISTS settings(id INT PRIMARY KEY CHECK(id=1),data JSONB NOT NULL);
- CREATE TABLE IF NOT EXISTS attempts(ip TEXT PRIMARY KEY,c INT NOT NULL,t BIGINT NOT NULL);`).catch(e=>{ready=null;throw e}));
+ CREATE TABLE IF NOT EXISTS attempts(ip TEXT PRIMARY KEY,c INT NOT NULL,t BIGINT NOT NULL);`)).catch(e=>{ready=null;throw e}));
 
 /* ---- auth: credentials from env vars, signed stateless cookie (works across serverless instances) ---- */
 const TTL=12*3600e3,SECRET=()=>{if(!process.env.SESSION_SECRET)throw new Error("SESSION_SECRET is not set");return process.env.SESSION_SECRET};

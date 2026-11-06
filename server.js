@@ -4,6 +4,7 @@ const express = require("express");
 const { Pool } = require("pg");
 const crypto = require("crypto");
 const path = require("path");
+const fs = require("fs");
 const { calc } = require("./public/js/calc.js");
 const DEF={name:"NAVEEN TEX",gstin:"33BJEPM7823D2ZE",addr:"3/178/4, Saravana Nagar, Chennimalai, Erode, Tamil Nadu 638051",phone:"",email:"",holder:"",bank:"Tamilnadu Mercantile Bank",acc:"361700050900039",ifsc:"TMBL0000361",branch:"Kanakkankadu (CHENNIMALAI)",upi:"",terms:""};
 const pool=new Pool({connectionString:process.env.DATABASE_URL||process.env.POSTGRES_URL,max:3,idleTimeoutMillis:10000});
@@ -89,11 +90,22 @@ app.put("/api/settings",needAuth,w(async(req,res)=>{const b=req.body||{},o={};
  if(o.acc&&!/^\d{6,20}$/.test(o.acc))return res.status(400).json({error:"Account number should be digits only"});
  await pool.query("INSERT INTO settings(id,data) VALUES(1,$1) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data",[JSON.stringify(o)]);res.json(o)}));
 
-if(!process.env.VERCEL)app.use(express.static(path.join(__dirname,"public")));   /* local run only; Vercel serves /public itself */
+/* ---- web pages: read once at start-up. Each file is listed with a literal path so Vercel bundles it with the function. ---- */
+const PAGES = {
+  "/index.html": ["text/html; charset=utf-8", fs.readFileSync(path.join(__dirname, "public", "index.html"))],
+  "/css/style.css": ["text/css; charset=utf-8", fs.readFileSync(path.join(__dirname, "public", "css", "style.css"))],
+  "/js/app.js": ["application/javascript; charset=utf-8", fs.readFileSync(path.join(__dirname, "public", "js", "app.js"))],
+  "/js/calc.js": ["application/javascript; charset=utf-8", fs.readFileSync(path.join(__dirname, "public", "js", "calc.js"))],
+  "/img/logo.png": ["image/png", fs.readFileSync(path.join(__dirname, "public", "img", "logo.png"))],
+};
+app.get(/^\/(?!api\/).*/, (req, res, next) => {
+  const p = PAGES[req.path === "/" ? "/index.html" : req.path];
+  if (!p) return next();
+  res.set("Cache-Control", "no-cache").type(p[0]).send(p[1]);
+});
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log("Naveen Tex Invoice Generator on http://localhost:" + PORT));
 }
 
 module.exports = app;
-

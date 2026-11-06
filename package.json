@@ -1,0 +1,2 @@
+{"name":"naveen-tex-invoice","version":"2.0.0","private":true,"scripts":{"start":"node server.js"},"engines":{"node":"20.x"},
+ "dependencies":{"express":"^4.19.2","pg":"^8.12.0"}}
